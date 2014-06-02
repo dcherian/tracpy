@@ -46,16 +46,20 @@ def background(grid=None, ax=None, pars=np.arange(18, 35), mers=np.arange(-100, 
     if ax is None:
         ax = gca()
 
-    # Do plot   
-    grid['basemap'].drawcoastlines(ax=ax)
-    grid['basemap'].fillcontinents('0.8',ax=ax)
-    grid['basemap'].drawparallels(pars, dashes=(1, 1), 
-                            linewidth=0.15, labels=parslabels, ax=ax)
-    grid['basemap'].drawmeridians(mers, dashes=(1, 1), 
-                            linewidth=0.15, labels=merslabels, ax=ax)
-    # hold('on')
-    ax.contour(grid['xr'], grid['yr'], grid['h'], hlevs, 
-                            colors=col, linewidths=0.5)
+    # Do plot
+    try:
+        grid['basemap'].drawcoastlines(ax=ax)
+        grid['basemap'].fillcontinents('0.8',ax=ax)
+        grid['basemap'].drawparallels(pars, dashes=(1, 1),
+                                      linewidth=0.15, labels=parslabels, ax=ax)
+        grid['basemap'].drawmeridians(mers, dashes=(1, 1),
+                                      linewidth=0.15, labels=merslabels, ax=ax)
+        # hold('on')
+    except AttributeError:
+        print('Ignoring basemap directive')
+
+    ax.contour(grid['xr'], grid['yr'], grid['h'], hlevs,
+               colors=col, linewidths=0.5)
 
     if outline:
         # Outline numerical domain
