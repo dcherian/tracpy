@@ -292,7 +292,7 @@ def hist(lonp, latp, fname, tind='final', which='contour', vmax=None, fig=None, 
         # savefig('figures/' + fname + 'histpcolor.pdf',bbox_inches='tight')
 
 
-def tracks(lonp,latp,fname,grid=None, fig=None, ax=None, Title=None, mers=None, pars=None):
+def tracks(lonp,latp,fname,grid=None, fig=None, ax=None, Title=None, mers=None, pars=None, isll=True):
     """
     Plot tracks as lines with starting points in green and ending points in red.
 
@@ -315,12 +315,16 @@ def tracks(lonp,latp,fname,grid=None, fig=None, ax=None, Title=None, mers=None, 
     else:
         ax = ax
 
-    # Change positions from lon/lat to x/y
-    xp,yp = grid['basemap'](lonp,latp)
-    # Need to retain nan's since basemap changes them to values
-    ind = np.isnan(lonp)
-    xp[ind] = np.nan
-    yp[ind] = np.nan
+    if isll:
+        # Change positions from lon/lat to x/y
+        xp,yp = grid['basemap'](lonp,latp)
+        # Need to retain nan's since basemap changes them to values
+        ind = np.isnan(lonp)
+        xp[ind] = np.nan
+        yp[ind] = np.nan
+    else:
+        xp = lonp;
+        yp = latp;
   
     if mers is not None:
         background(grid, ax=ax, mers=mers, pars=pars) # Plot coastline and such
