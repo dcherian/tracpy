@@ -62,7 +62,7 @@ def test_prepareForSimulation():
     Test initial steps to get ready for a simulation.
     '''
 
-    date = datetime.datetime(2013, 12, 19, 0)
+    date = datetime.datetime(2013, 12, 17, 0)
     lon0 = [-123., -123.]
     lat0 = [48.55, 48.75]
     tp = Tracpy(os.path.join(here, 'input', 'ocean_his_0001.nc'), grid_filename=os.path.join(here, 'input', 'grid.nc'))
