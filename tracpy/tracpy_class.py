@@ -323,7 +323,7 @@ class Tracpy(object):
                 # the z surface for each drifter
                 for i in xrange(ia.size):
                     ind = (self.zwt[ia[i],ja[i],:,1]<=self.z0[i])
-                    ka[i] = find(ind)[-1] # find value that is just shallower than starting vertical position
+                    ka[i] = ind.argmax() - 1 #find(ind)[-1] # find value that is just shallower than starting vertical position
                     if (self.z0[i] != self.zwt[ia[i],ja[i],ka[i],1]) and (ka[i] != self.grid['km']): # check this
                         ka[i] = ka[i]+1
                     # Then find the vertical relative position in the grid cell by adding on the bit of grid cell
