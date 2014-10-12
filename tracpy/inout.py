@@ -666,12 +666,15 @@ def savetracks(xin, yin ,zpin, tpin, name, nstepsin, Nin, ffin, tseasin,
     ntrac = xin.shape[0] # number of drifters
     nt = xin.shape[1] # number of time steps (with interpolation steps and starting point)
     
-    # # save hash for the particular commit version that is currently being used
-    # tempfile = os.popen('git log -1 --format="%H"')
-    # git_hash_in = tempfile.read()
-    # tempfile.close()
-    # # remove \n on the end that I can't get rid of
-    # git_hash_in = git_hash_in[0:git_hash_in.find('\n')]
+    # save hash for the particular commit version that is currently being used
+    # first get repo directory for _tracpy_ not the project for which I'm using tracpy
+    repodir = os.path.dirname(os.path.realpath(__file__))
+    gitstr = 'git --git-dir=' + repodir + '/../.git log -1 --format="%H"'
+    tempfile = os.popen(gitstr)
+    git_hash_in = tempfile.read()
+    tempfile.close()
+    # remove \n on the end that I can't get rid of
+    git_hash_in = git_hash_in[0:git_hash_in.find('\n')]
 
     # Save file into a local directory called tracks. Make directory if it doesn't exist.
     if 'tracks' not in name:
@@ -708,6 +711,9 @@ def savetracks(xin, yin ,zpin, tpin, name, nstepsin, Nin, ffin, tseasin,
         yvl = Vin.shape[1]
         rootgrp.createDimension('xvl',xvl)
         rootgrp.createDimension('yvl',yvl)
+
+    # save githash as global attribute
+    rootgrp.git_hash = git_hash_in
 
     # Do the rest of this by variable so they can be deleted as I go for memory.
     if savell: # if saving in latlon
