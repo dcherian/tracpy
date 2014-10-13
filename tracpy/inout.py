@@ -884,14 +884,18 @@ def loadtransport(name,fmod=None):
     # all files
     for i, File in enumerate(Files):
         d = netCDF.Dataset(File)
-        if i == 0: # initialize U and V transports from first file
-            U = d.variables['U'][:]
-            V = d.variables['V'][:]
-            T0 = np.sum(d.variables['T0'][:])
-        else: # add in transports from subsequent simulations
-            U = U + d.variables['U'][:]
-            V = V + d.variables['V'][:]
-            T0 = T0 + np.sum(d.variables['T0'][:])
+        try:
+            if i == 0: # initialize U and V transports from first file
+                U = d.variables['U'][:]
+                V = d.variables['V'][:]
+                T0 = np.sum(d.variables['T0'][:])
+            else: # add in transports from subsequent simulations
+                U = U + d.variables['U'][:]
+                V = V + d.variables['V'][:]
+                T0 = T0 + np.sum(d.variables['T0'][:])
+
+        except KeyError:
+            raise Exception("Transport data not present in provided file: " + File)
 
         # Add initial drifter location (all drifters start at the same location)
         lon0 = d.variables['lonp'][:,0]
