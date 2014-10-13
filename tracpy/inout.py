@@ -848,6 +848,11 @@ def loadtracks(name,loc=None):
         name    Name of tracks file
         loc     (optional) Tracks file is assumed to be in local tracks directory.
                 Use this to give location if it is not.
+    Outputs:
+        lonp    Longitude of particle
+        latp    Latitude of particle
+        zp      Depth of particle
+        tp      Time vector
     """
 
     if loc is None:
