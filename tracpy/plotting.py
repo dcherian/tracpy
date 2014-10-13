@@ -340,7 +340,7 @@ def tracks(lonp,latp,fname,grid=None, fig=None, ax=None, Title=None, mers=None, 
 
     # Find final positions of drifters
     xpc,ypc = tools.find_final(xp,yp)
-    ax.plot(xpc,ypc,'o',color='r',label='_nolegend_')
+    ax.plot(xpc,ypc,'o', alpha=0.8, color='#e34a33',label='_nolegend_')
     # pdb.set_trace()
 
     if Title is not None:
