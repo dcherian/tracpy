@@ -46,16 +46,20 @@ def background(grid=None, ax=None, pars=np.arange(18, 35), mers=np.arange(-100, 
     if ax is None:
         ax = gca()
 
-    # Do plot   
-    grid['basemap'].drawcoastlines(ax=ax)
-    grid['basemap'].fillcontinents('0.8',ax=ax)
-    grid['basemap'].drawparallels(pars, dashes=(1, 1), 
-                            linewidth=0.15, labels=parslabels, ax=ax)
-    grid['basemap'].drawmeridians(mers, dashes=(1, 1), 
-                            linewidth=0.15, labels=merslabels, ax=ax)
-    # hold('on')
-    ax.contour(grid['xr'], grid['yr'], grid['h'], hlevs, 
-                            colors=col, linewidths=0.5)
+    # Do plot
+    try:
+        grid['basemap'].drawcoastlines(ax=ax)
+        grid['basemap'].fillcontinents('0.8',ax=ax)
+        grid['basemap'].drawparallels(pars, dashes=(1, 1),
+                                      linewidth=0.15, labels=parslabels, ax=ax)
+        grid['basemap'].drawmeridians(mers, dashes=(1, 1),
+                                      linewidth=0.15, labels=merslabels, ax=ax)
+        # hold('on')
+    except AttributeError:
+        print('Ignoring basemap directive')
+
+    ax.contour(grid['xr'], grid['yr'], grid['h'], hlevs,
+               colors=col, linewidths=0.5)
 
     if outline:
         # Outline numerical domain
@@ -288,7 +292,7 @@ def hist(lonp, latp, fname, tind='final', which='contour', vmax=None, fig=None, 
         # savefig('figures/' + fname + 'histpcolor.pdf',bbox_inches='tight')
 
 
-def tracks(lonp,latp,fname,grid=None, fig=None, ax=None, Title=None, mers=None, pars=None):
+def tracks(lonp,latp,fname,grid=None, fig=None, ax=None, Title=None, mers=None, pars=None, isll=True):
     """
     Plot tracks as lines with starting points in green and ending points in red.
 
@@ -311,12 +315,16 @@ def tracks(lonp,latp,fname,grid=None, fig=None, ax=None, Title=None, mers=None, 
     else:
         ax = ax
 
-    # Change positions from lon/lat to x/y
-    xp,yp = grid['basemap'](lonp,latp)
-    # Need to retain nan's since basemap changes them to values
-    ind = np.isnan(lonp)
-    xp[ind] = np.nan
-    yp[ind] = np.nan
+    if isll:
+        # Change positions from lon/lat to x/y
+        xp,yp = grid['basemap'](lonp,latp)
+        # Need to retain nan's since basemap changes them to values
+        ind = np.isnan(lonp)
+        xp[ind] = np.nan
+        yp[ind] = np.nan
+    else:
+        xp = lonp;
+        yp = latp;
   
     if mers is not None:
         background(grid, ax=ax, mers=mers, pars=pars) # Plot coastline and such
@@ -332,7 +340,7 @@ def tracks(lonp,latp,fname,grid=None, fig=None, ax=None, Title=None, mers=None, 
 
     # Find final positions of drifters
     xpc,ypc = tools.find_final(xp,yp)
-    ax.plot(xpc,ypc,'o',color='r',label='_nolegend_')
+    ax.plot(xpc,ypc,'o', alpha=0.8, color='#e34a33',label='_nolegend_')
     # pdb.set_trace()
 
     if Title is not None:

@@ -321,13 +321,16 @@ class Tracpy(object):
             elif self.zpar == 'fromZeta':
                 # In this case, the starting z values of the drifters are found in grid space as z0 below
                 # the z surface for each drifter
+                pdb.set_trace()
                 for i in xrange(ia.size):
-                    ind = (self.zwt[ia[i],ja[i],:,1]<=self.z0[i])
+                    # ravel to 
+                    z0 = self.z0.ravel()
+                    ind = (self.zwt[ia[i],ja[i],:,1]<=z0[i])
                     ka[i] = find(ind)[-1] # find value that is just shallower than starting vertical position
-                    if (self.z0[i] != self.zwt[ia[i],ja[i],ka[i],1]) and (ka[i] != self.grid['km']): # check this
+                    if (z0[i] != self.zwt[ia[i],ja[i],ka[i],1]) and (ka[i] != self.grid['km']): # check this
                         ka[i] = ka[i]+1
                     # Then find the vertical relative position in the grid cell by adding on the bit of grid cell
-                    zstart0[i] = ka[i] - abs(self.z0[i]-self.zwt[ia[i],ja[i],ka[i],1]) \
+                    zstart0[i] = ka[i] - abs(z0[i]-self.zwt[ia[i],ja[i],ka[i],1]) \
                                       /abs(self.zwt[ia[i],ja[i],ka[i]-1,1]-self.zwt[ia[i],ja[i],ka[i],1])
 
         # Find initial cell depths to concatenate to beginning of drifter tracks later
