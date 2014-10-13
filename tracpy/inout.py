@@ -134,7 +134,12 @@ def setupROMSfiles(loc,date,ff,tout, tstride=1):
                 # keep adding files on
                 while tinds[-1] > len(dates): 
                     # if tdir: #forward - add 2nd file on end
-                    fname.append(files[ifile+i])
+                    try:
+                        fname.append(files[ifile+i])
+                    except IndexError:
+                        print 'warning: not enough files for requested number of timesteps. Truncating.'
+                        break
+
                     nc = netCDF.MFDataset(fname) # files in fname are in chronological order
                     dates = nc.variables['ocean_time'][:]   
                     ilow = date >= dates
