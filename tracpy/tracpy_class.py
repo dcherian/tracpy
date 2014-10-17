@@ -215,8 +215,8 @@ class Tracpy(object):
 
         # If dostream==1, do transport calculations and initialize to an empty array
         if self.U is None and self.dostream:
-            self.U = np.ma.zeros(grid['xu'].shape, order='F')
-            self.V = np.ma.zeros(grid['xv'].shape, order='F')
+            self.U = np.ma.zeros(self.grid['xu'].shape, order='F')
+            self.V = np.ma.zeros(self.grid['xv'].shape, order='F')
 
         # Interpolate to get starting positions in grid space
         if self.usespherical: # convert from assumed input lon/lat coord locations to grid space
