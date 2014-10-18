@@ -332,7 +332,11 @@ def readgrid(grid_filename, vert_filename=None, llcrnrlon=-98.5, llcrnrlat=22.5,
         Vstretching = gridfile.variables['Vstretching'][0]
     # Still want vertical grid metrics, but are in separate file
     elif vert_filename is not None:
-        nc = netCDF.Dataset(vert_filename)
+        try:
+            nc = netCDF.Dataset(vert_filename)
+        except RuntimeError:
+            nc = netCDF.MFDataset(vert_filename)
+
         sc_r = nc.variables['s_w'][:] # sigma coords, 31 layers
         Cs_r = nc.variables['Cs_w'][:] # stretching curve in sigma coords, 31 layers
         hc = nc.variables['hc'][:]
