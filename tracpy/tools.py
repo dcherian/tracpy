@@ -303,12 +303,14 @@ def check_points(lon0,lat0,grid, z0=None, nobays=False):
                 if z0 is not None:
                     z0[jd] = np.nan
 
-                if z0 is not None:
-                    if z0[jd] <= -1*hint(lon0[jd], lat0[jd]):
-                        lon0[jd] = np.nan
-                        lat0[jd] = np.nan
-                        if z0 is not None:
-                            z0[jd] = np.nan
+            if z0 is not None:
+                # check that the drifter starts at least 1m above the bottom
+                # alternative would be to use nearest-neighbour interpolation
+                # but I think the run code always floors the fractional index.
+                if z0[jd] <= -1*hint(lon0[jd], lat0[jd]) + 1:
+                    lon0[jd] = np.nan
+                    lat0[jd] = np.nan
+                    z0[jd] = np.nan
 
     # Also nan out points that are masked
     fmask = grid['trirllrho'].nn_interpolator(grid['mask'].flatten())
