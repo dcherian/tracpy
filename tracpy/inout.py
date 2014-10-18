@@ -100,6 +100,22 @@ def setupROMSfiles(loc,date,ff,tout, tstride=1):
                     ifile = i # this is the starting file identifier then
                     break
 
+        # first figure out unique indices
+        nc = netCDF.MFDataset(loc)
+        # Dates for drifters from this start date
+        dates = nc.variables['ocean_time'][:]
+        # Select indices
+        # at this point, tout has number of valid indices that I'm stepping over(excluding duplicates)
+        # So, I need to pull out "tout" unique tinds (unq prefix indicates uniquified)
+        unqtime, unqtind = np.unique(dates, return_index=True)
+        ilow = date >= unqtime
+        istart = unqtime[ilow].size - 1
+        tinds = unqtind[istart:istart+tout:tstride] # this is using all files
+
+        # this works for me
+        return nc, tinds
+        #nc.close()
+
         # Since the number of indices per file can change, make the process
         # of finding the necessary files a little more general
         # Start by opening two files
@@ -114,11 +130,8 @@ def setupROMSfiles(loc,date,ff,tout, tstride=1):
         # time index with time value just below date (relative to file ifile)
         #istart = dates[ilow].size - 1
         # Select indices 
-        # at this point, tout has number of valid indices that I'm stepping over(excluding duplicates)
-        # So, I need to pull out "tout" unique tinds (unq prefix indicates uniquified)
-        unqtime, unqtind = np.unique(dates, return_index=True)
-        ilow = date >= unqtime
-        istart = unqtime[ilow].size - 1
+        ilow = date >= dates
+        istart = dates[ilow].size - 1
         nc.close()
         if ff==1:
             #tinds = range(istart,istart+tout, tstride)
@@ -139,7 +152,8 @@ def setupROMSfiles(loc,date,ff,tout, tstride=1):
             else: # multiple snapshots per file
                 # if the final index we want is beyond the length of these files,
                 # keep adding files on
-                while tinds[-1] > len(dates): 
+                #                while tinds[-1] > len(dates):
+                while len(tinds) < tout:
                     # if tdir: #forward - add 2nd file on end
                     try:
                         fname.append(files[ifile+i])
@@ -149,7 +163,6 @@ def setupROMSfiles(loc,date,ff,tout, tstride=1):
 
                     nc = netCDF.MFDataset(fname) # files in fname are in chronological order
                     dates = nc.variables['ocean_time'][:]   
-                    unqtime, unqtind = np.unique(dates, return_index=True)
                     ilow = date >= unqtime
                     istart = unqtime[ilow].size - 1
                     tinds = unqtind[istart:istart+tout:tstride]
