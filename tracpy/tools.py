@@ -260,7 +260,7 @@ def check_points(lon0,lat0,grid, z0=None, nobays=False):
     if z0 is not None:
         from scipy.interpolate import interp2d
         h = grid['h']
-        hint = interp2d(lonr[:,1], latr[1,:], h)
+        hint = interp2d(lonr[:,1], latr[1,:], h.T, fill_value=np.nan)
 
     # If covering the whole domain, need to exclude points outside domain.
     # Use info just inside domain so points aren't right at the edge.
