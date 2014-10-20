@@ -287,7 +287,7 @@ def check_points(lon0, lat0, grid, z0=None, nobays=False):
                         z0[jd,it] = np.nan
 
                 if z0 is not None:
-                    if z0[jd,it] <= -1*hint(lon0[jd,it], lat0[jd,it]):
+                    if z0[jd,it] <= -1*hint(lon0[jd,it], lat0[jd,it]) + 1:
                         lon0[jd,it] = np.nan
                         lat0[jd,it] = np.nan
                         if z0 is not None:
