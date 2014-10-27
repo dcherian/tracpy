@@ -35,7 +35,7 @@ def run(tp, date, lon0, lat0):
     # Loop through model outputs.
     for j,tind in enumerate(tinds[:-1]):
 
-        print 'Using GCM model output index ', tind
+        print 'Using GCM model output index ', tind, '/', tinds.max()
 
         # Loop through substeps in call to TRACMASS in case we want to add on windage, etc, for each step
         for nsubstep in xrange(tp.nsubsteps):
