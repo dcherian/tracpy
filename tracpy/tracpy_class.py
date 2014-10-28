@@ -340,6 +340,7 @@ class Tracpy(object):
         xend[:,0] = xstart0
         yend[:,0] = ystart0
         zend[:,0] = zstart0
+        zp[:,0] = z0
 
         return tinds, nc, t0save, xend, yend, zend, zp, ttend, flag
 
