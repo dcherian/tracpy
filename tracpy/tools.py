@@ -238,11 +238,7 @@ def convert_indices(direction,x,y):
 
     return x, y
 
-<<<<<<< HEAD
-def check_points(lon0,lat0,grid, z0=None, nobays=False):
-=======
 def check_points(lon0, lat0, grid, z0=None, nobays=False):
->>>>>>> check_points_pr
     """
     Eliminate starting locations for drifters that are outside numerical domain
     and that are masked out. If provided an array of starting vertical locations
