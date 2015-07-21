@@ -14,7 +14,7 @@ from scipy import ndimage
 import time
 import tracpy
 
-def Var(xp, yp, tp, varin, nc):
+def Var(xp, yp, tp, varin, nc, units='seconds since 1970-01-01'):
     '''
     Calculate the given property, varin, along the input drifter tracks. This property can
     be changing in time and space.
@@ -27,6 +27,7 @@ def Var(xp, yp, tp, varin, nc):
         varin       Variable to calculate. Available options are: u, v, salt, temp, h, zeta
         nc          Netcdf file object where the model output can be accessed which includes 
                     all necessary times
+        units       For time conversion, not used for depths 
 
     Outputs:
         varp        Variable along the drifter track
@@ -44,11 +45,11 @@ def Var(xp, yp, tp, varin, nc):
     tstart = time.time()
 
     # Time indices for the drifter track points
-    units = 'seconds since 1970-01-01'
-    t = nc.variables['ocean_time'][:] # model times
-    istart = find(netCDF.num2date(t, units) <= netCDF.num2date(tp[0], units))[-1]
-    iend = find(netCDF.num2date(t, units) >= netCDF.num2date(tp[-1], units))[0]
-    tinds = np.arange(istart, iend)
+    if varin!='h': # don't need time for h
+        t = nc.variables['ocean_time'][:] # model times
+        istart = find(netCDF.num2date(t, units) <= netCDF.num2date(tp[0], units))[-1]
+        iend = find(netCDF.num2date(t, units) >= netCDF.num2date(tp[-1], units))[0]
+        tinds = np.arange(istart, iend)
 
 
     # Read in model information. Try reading it all in the for time, y, and x and then
@@ -107,26 +108,33 @@ def Var(xp, yp, tp, varin, nc):
     return varp
 
 
-def get_dist(lon1, lons, lat1, lats): 
+def get_dist(lon1, lons, lat1, lats, spherical=True): 
     '''
     Function to compute great circle distance between point lat1 and lon1 
     and arrays of points given by lons, lats or both same length arrays.
     Uses Haversine formula. Distance is in km.
     '''
 
-    lon1 = lon1*np.pi/180.
-    lons = lons*np.pi/180.
-    lat1 = lat1*np.pi/180.
-    lats = lats*np.pi/180.
+    if spherical:
 
-    earth_radius = 6373.
-    distance = earth_radius*2.0*np.arcsin(np.sqrt(np.sin(0.50*(lat1-lats))**2 \
-                                       + np.cos(lat1)*np.cos(lats) \
-                                       * np.sin(0.50*(lon1-lons))**2))
+        lon1 = lon1*np.pi/180.
+        lons = lons*np.pi/180.
+        lat1 = lat1*np.pi/180.
+        lats = lats*np.pi/180.
+
+        earth_radius = 6373.
+        distance = earth_radius*2.0*np.arcsin(np.sqrt(np.sin(0.50*(lat1-lats))**2 \
+                                           + np.cos(lat1)*np.cos(lats) \
+                                           * np.sin(0.50*(lon1-lons))**2))
+
+    else:
+
+        distance = np.sqrt((lats - lat1)**2 + (lons - lon1)**2)/1000.
+
     return distance
 
 
-def rel_dispersion(lonp, latp, r=1, squared=True):
+def rel_dispersion(lonp, latp, r=[0,1], squared=True, spherical=True):
     '''
     Calculate the relative dispersion of a set of tracks. First, initial pairs
     of drifters are found, based on a maximum initial separation distance, then
@@ -134,10 +142,12 @@ def rel_dispersion(lonp, latp, r=1, squared=True):
 
     Inputs:
         lonp, latp      Longitude/latitude of the drifter tracks [ndrifter,ntime]
-        r               Initial separation distance (kilometers) defining pairs of drifters. 
-                        Default is 1 kilometer.
+        r               Initial separation distance minimum and maximum (kilometers) 
+                        to be used to define pairs of drifters. 
+                        Default is 0 km min and 1 kilometer max.
         squared         Whether to present the results as separation distance squared or 
                         not squared. Squared by default.
+        spherical       True for inputs in lon/lat, and False for already in meters.
 
     Outputs:
         D2              Relative dispersion (squared or not) averaged over drifter 
@@ -151,7 +161,7 @@ def rel_dispersion(lonp, latp, r=1, squared=True):
     of nnans.
 
     Example call:
-    tracpy.calcs.rel_dispersion(dr.variables['lonp'][:], dr.variables['latp'][:], r=1, squared=True)
+    tracpy.calcs.rel_dispersion(dr.variables['lonp'][:], dr.variables['latp'][:], r=[0,1], squared=True)
     '''
 
     # Find pairs of drifters based on initial position
@@ -161,24 +171,19 @@ def rel_dispersion(lonp, latp, r=1, squared=True):
     # dist = np.zeros((lonp.shape[0],lonp.shape[0]))*np.nan
 
     # let the index in axis 0 be the drifter id
-    ID = np.arange(lonp.shape[0])
+    # ID = np.arange(lonp.shape[0])
     # Loop through all drifters and find initial separation distances smaller than r.
     # Then exclude repeated pairs. And calculate initial distances.
     pairs = []
     for idrifter in xrange(lonp.shape[0]):
-        # pdb.set_trace()
-        # dist contains all of the distances from other drifters for each drifter
+        # dist contains all of the distances from other unchecked drifters for each drifter
         dist = get_dist(lonp[idrifter,0], lonp[idrifter+1:,0], 
-                                    latp[idrifter,0], latp[idrifter+1:,0])
-        # dist[idrifter, idrifter+1:] = get_dist(lonp[idrifter,0], lonp[idrifter+1:,0], 
-        #                             latp[idrifter,0], latp[idrifter+1:,0])
-        # dist[idrifter,:] = get_dist(lonp[idrifter,0], lonp[:,0], latp[idrifter,0], latp[:,0])
-        ind = find(dist<=r)
+                                    latp[idrifter,0], latp[idrifter+1:,0], spherical=spherical)
+        # add in which drifter we are at to shift to correct index and one since starts after comparison point
+        ind = idrifter + 1 + find((dist<=r[1]) * (dist>=r[0])) 
         for i in ind:
-            if ID[idrifter] != ID[i]:
-                pairs.append([min(ID[idrifter], ID[i]), 
-                                max(ID[idrifter], ID[i])])
-    # pdb.set_trace()
+            pairs.append([min(idrifter, i), max(idrifter, i)])
+
     # print 'time for initial particle separation and pairs: ', time.time()-tstart
 
     # tstart = time.time()
@@ -212,8 +217,9 @@ def rel_dispersion(lonp, latp, r=1, squared=True):
 
         # calculate distance in time
         dist = get_dist(lonp[pairs[ipair][0],:], lonp[pairs[ipair][1],:], 
-                    latp[pairs[ipair][0],:], latp[pairs[ipair][1],:])
-
+                    latp[pairs[ipair][0],:], latp[pairs[ipair][1],:], spherical=spherical)
+        # if np.nanmax(np.diff(dist))>2:
+        #     print pairs[ipair], np.nanmax(np.diff(dist))
         # dispersion can be presented as squared or not
         if squared:
             D2 = np.nansum(np.vstack([D2, dist**2]), axis=0)

@@ -18,18 +18,19 @@ class Tracpy(object):
     TracPy class.
     '''
 
-    def __init__(self, currents_filename, grid_filename=None, nsteps=1, ndays=1, ff=1, tseas=3600.,
+    def __init__(self, currents_filename, grid_filename=None, vert_filename=None, nsteps=1, ndays=1, ff=1, tseas=3600.,
                 ah=0., av=0., z0='s', zpar=1, do3d=0, doturb=0, name='test', dostream=0, N=1, 
                 time_units='seconds since 1970-01-01', dtFromTracmass=None, zparuv=None, tseas_use=None,
-                T0=None, U=None, V=None, usebasemap=False, savell=True, doperiodic=0, usespherical=True):
+                usebasemap=False, savell=True, doperiodic=0, usespherical=True, grid=None):
         '''
         Initialize class.
 
         Note: GCM==General Circulation Model, meaning the predicted u/v velocity fields that are input 
         into TracPy to run the drifters.
 
-        :param currents_filename: NetCDF file name (with extension) or OpenDAP url to GCM output. If you intend to input a set of NetCDF file names, use glob notation.
+        :param currents_filename: NetCDF file name (with extension), list of file names, or OpenDAP url to GCM output.
         :param grid_filename=None: NetCDF grid file name or OpenDAP url to GCM grid.
+        :param vert_filename=None: If vertical grid information is not included in the grid file, or if all grid info is not in output file, use two.
         :param nsteps=1: sets the max time step between GCM model outputs between drifter steps.
                (iter in TRACMASS) Does not control the output sampling anymore.
                The velocity fields are assumed frozen while a drifter is stepped through a given 
@@ -88,9 +89,6 @@ class Tracpy(object):
                this is just an ability to use model output at less frequency than is available, 
                probably just for testing purposes or matching other models. Should be a multiple 
                of tseas (or will be rounded later).
-        :param T0=None: Volume transport represented by each drifter. for use with dostream=1.
-        :param U=None: east-west transport, is updated by TRACMASS. Only used if dostream=1.
-        :param V=None: north-south transport, is updated by TRACMASS. Only used if dostream=1.
         :param usebasemap=False: whether to use basemap for projections in readgrid or not. 
                Not is faster, but using basemap allows for plotting.
         :param savell=True: True to save drifter tracks in lon/lat and False to save them in grid coords
@@ -100,11 +98,26 @@ class Tracpy(object):
                2: use a periodic boundary condition in the north-south/y/j direction
         :param usespherical=True: True if want to use spherical (lon/lat) coordinates and False
                for idealized applications where it isn't necessary to project from spherical coordinates.
+        :param grid=None: Grid is initialized to None and is found subsequently normally, but can be set with the TracPy object in order to save time when running a series of simulations.
         '''
 
         self.currents_filename = currents_filename
         self.grid_filename = grid_filename
-        self.grid = None
+
+        # If grid_filename is distinct, assume we need a separate vert_filename for vertical grid info
+        # use what is input or use info from currents_filename
+        if grid_filename is not None: 
+            if vert_filename is not None:
+                self.vert_filename = vert_filename
+            else:
+                if type(currents_filename)==str: # there is one input filename
+                    self.vert_filename = currents_filename
+                else: # we have a list of names
+                    self.vert_filename = currents_filename[0]
+        else:
+            self.vert_filename = vert_filename # this won't be used though
+
+        self.grid = grid
 
         # Initial parameters
         self.nsteps = nsteps
@@ -121,9 +134,6 @@ class Tracpy(object):
         self.dostream = dostream
         self.N = N
         self.time_units = time_units
-        self.T0 = T0
-        self.U = U
-        self.V = V
         self.usebasemap = usebasemap
         self.savell = savell
         self.doperiodic = doperiodic
@@ -154,6 +164,9 @@ class Tracpy(object):
 
         if zparuv is None:
             self.zparuv = zpar
+        else:
+            self.zparuv = zparuv
+            
         if tseas_use is None:
             self.tseas_use = tseas
 
@@ -172,10 +185,6 @@ class Tracpy(object):
         # Calculate time outputs stride. Will be 1 if want to use all model output.
         self.tstride = int(self.tseas_use/self.tseas) # will round down
 
-        # U,V currently initialized elsewhere if not input explicitly.
-        if dostream:
-            assert self.T0 is not None
-
         # For later use
         # fluxes
         self.uf = None
@@ -192,7 +201,7 @@ class Tracpy(object):
         # if vertical grid information is not included in the grid file, or if all grid info
         # is not in output file, use two
         if self.grid_filename is not None:
-            self.grid = tracpy.inout.readgrid(self.grid_filename, vert_filename=self.currents_filename, 
+            self.grid = tracpy.inout.readgrid(self.grid_filename, self.vert_filename, 
                                                 usebasemap=self.usebasemap, usespherical=self.usespherical)
         else:
             self.grid = tracpy.inout.readgrid(self.currents_filename, usebasemap=self.usebasemap,
@@ -203,11 +212,11 @@ class Tracpy(object):
         Get everything ready so that we can get to the simulation.
         '''
 
-        # Convert date to number
-        date = netCDF.date2num(date, self.time_units)
+        # # Convert date to number
+        # date = netCDF.date2num(date, self.time_units)
 
         # Figure out what files will be used for this tracking
-        nc, tinds = tracpy.inout.setupROMSfiles(self.currents_filename, date, self.ff, self.tout, tstride=self.tstride)
+        nc, tinds = tracpy.inout.setupROMSfiles(self.currents_filename, date, self.ff, self.tout, self.time_units, tstride=self.tstride)
 
         # Read in grid parameters into dictionary, grid, if haven't already
         if self.grid is None:
@@ -303,7 +312,8 @@ class Tracpy(object):
             zstart0 = np.ones(ia.size)*np.nan
 
             if self.zpar == 'fromMSL':
-                print 'zpar==''fromMSL'' not implemented yet...'
+                # print 'zpar==''fromMSL'' not implemented yet...'
+                raise NotImplementedError("zpar==''fromMSL'' not implemented yet...")
             #     for i in xrange(ia.size):
             #         # pdb.set_trace()
             #         ind = (self.grid['zwt0'][ia[i],ja[i],:]<=self.z0[i])
@@ -343,7 +353,7 @@ class Tracpy(object):
 
         return tinds, nc, t0save, xend, yend, zend, zp, ttend, flag
 
-    def prepare_for_model_step(self, tind, nc, flag, xend, yend, zend, j, nsubstep):
+    def prepare_for_model_step(self, tind, nc, flag, xend, yend, zend, j, nsubstep, T0):
         '''
         Already in a step, get ready to actually do step
         '''
@@ -356,6 +366,8 @@ class Tracpy(object):
         xstart = np.ma.masked_where(flag[:]==1,xstart)
         ystart = np.ma.masked_where(flag[:]==1,ystart)
         zstart = np.ma.masked_where(flag[:]==1,zstart)
+        if T0 is not None:
+            T0 = np.ma.masked_where(flag[:]==1,T0)
 
         # Move previous new time step to old time step info
         self.uf[:,:,:,0] = self.uf[:,:,:,1].copy()
@@ -390,9 +402,9 @@ class Tracpy(object):
         # (vertical are zero-based in tracmass)
         xstart, ystart = tracpy.tools.convert_indices('py2f',xstart,ystart)
 
-        return xstart, ystart, zstart, ufsub, vfsub
+        return xstart, ystart, zstart, ufsub, vfsub, T0
 
-    def step(self, xstart, ystart, zstart, ufsub, vfsub):
+    def step(self, xstart, ystart, zstart, ufsub, vfsub, T0, U, V):
         '''
         Take some number of steps between a start and end time.
         FIGURE OUT HOW TO KEEP TRACK OF TIME FOR EACH SET OF LINES
@@ -402,20 +414,32 @@ class Tracpy(object):
         '''
 
         # Figure out where in time we are 
-
-        xend, yend, zend, flag,\
-            ttend, U, V = \
-                tracmass.step(np.ma.compressed(xstart),
-                                np.ma.compressed(ystart),
-                                np.ma.compressed(zstart),
-                                self.tseas_use, ufsub, vfsub, self.ff, 
-                                self.grid['kmt'].astype(int), 
-                                self.dzt, self.grid['dxdy'], self.grid['dxv'], 
-                                self.grid['dyu'], self.grid['h'], self.nsteps, 
-                                self.ah, self.av, self.do3d, self.doturb, 
-                                self.doperiodic, self.dostream, self.N, 
-                                t0=self.T0,
-                                ut=self.U, vt=self.V)
+        
+        if T0 is not None:
+            xend, yend, zend, flag,\
+                ttend, U, V = \
+                    tracmass.step(np.ma.compressed(xstart),
+                                    np.ma.compressed(ystart),
+                                    np.ma.compressed(zstart),
+                                    self.tseas_use, ufsub, vfsub, self.ff, 
+                                    self.grid['kmt'].astype(int), 
+                                    self.dzt, self.grid['dxdy'], self.grid['dxv'], 
+                                    self.grid['dyu'], self.grid['h'], self.nsteps, 
+                                    self.ah, self.av, self.do3d, self.doturb, 
+                                    self.doperiodic, self.dostream, self.N, 
+                                    t0=np.ma.compressed(T0), ut=U, vt=V)
+        else:
+            xend, yend, zend, flag,\
+                ttend, U, V = \
+                    tracmass.step(np.ma.compressed(xstart),
+                                    np.ma.compressed(ystart),
+                                    np.ma.compressed(zstart),
+                                    self.tseas_use, ufsub, vfsub, self.ff, 
+                                    self.grid['kmt'].astype(int), 
+                                    self.dzt, self.grid['dxdy'], self.grid['dxv'], 
+                                    self.grid['dyu'], self.grid['h'], self.nsteps, 
+                                    self.ah, self.av, self.do3d, self.doturb, 
+                                    self.doperiodic, self.dostream, self.N)
 
         # return the new positions or the delta lat/lon
         return xend, yend, zend, flag, ttend, U, V
@@ -448,7 +472,7 @@ class Tracpy(object):
         # return the new positions or the delta lat/lon
         return xend, yend, zend, zp, ttend
 
-    def finishSimulation(self, ttend, t0save, xend, yend, zp):
+    def finishSimulation(self, ttend, t0save, xend, yend, zp, T0, U, V):
         '''
         Wrap up simulation.
         NOT DOING TRANSPORT YET
@@ -470,7 +494,7 @@ class Tracpy(object):
         tracpy.inout.savetracks(lonp, latp, zp, ttend, self.name, self.nsteps, self.N, self.ff, 
                             self.tseas_use, self.ah, self.av,
                             self.do3d, self.doturb, self.currents_filename, 
-                            self.doperiodic, self.time_units, self.T0, self.U, 
-                            self.V, savell=self.savell)
+                            self.doperiodic, self.time_units, T0, U, 
+                            V, savell=self.savell)
 
-        return lonp, latp, zp, ttend, self.T0, self.U, self.V
+        return lonp, latp, zp, ttend, T0, U, V

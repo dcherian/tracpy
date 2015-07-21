@@ -25,7 +25,7 @@ import os
 import tracpy
 from matplotlib.mlab import find
 
-def setupROMSfiles(loc,date,ff,tout, tstride=1):
+def setupROMSfiles(loc,date,ff,tout, time_units, tstride=1):
     '''
     setupROMSfiles()
     Kristen Thyng, March 2013
@@ -34,10 +34,15 @@ def setupROMSfiles(loc,date,ff,tout, tstride=1):
     model output indices within those files to use.
 
     Input:
-     loc        File location
+     loc        File location. loc can be:
+                * a thredds server web address
+                * a single string of a file location
+                * a list of strings of multiple file locations to be searched
+                through
      date       datetime format start date
      ff         Time direction. ff=1 forward, ff=-1 backward
      tout       Number of model outputs to use
+     time_units To convert to datetime
      tstride    Stride in time, in case want to use less model output
                  than is available. Default is 1, using all output.
 
@@ -51,113 +56,27 @@ def setupROMSfiles(loc,date,ff,tout, tstride=1):
     netCDF._set_default_format(format='NETCDF3_64BIT')
 
     # For thredds server where all information is available in one place
-    if 'http' in loc:
+    # or for a single file
+    if 'http' in loc or type(loc)==str:
         nc = netCDF.Dataset(loc)
-        if ff == 1: #forward in time
-            dates = nc.variables['ocean_time'][:] # don't stride here, need all times to make index determinations
-            ilow = date >= dates
-            # time index with time value just below datenum_in (relative to file ifile)
-            istart = dates[ilow].size - 1
-            tinds = range(istart,istart+tout, tstride) #use tstride here to get tinds correct
-        else: #backward
-            dates = nc.variables['ocean_time'][:]   
-            ilow = date >= dates
-            # time index with time value just below datenum_in (relative to file ifile)
-            istart = dates[ilow].size - 1
-            tinds = range(istart,istart-tout, -tstride) #use tstride here to get tinds correct
 
     # This is for the case when we have a bunch of files to sort through
     else:
-        files = np.sort(glob.glob(loc)) # sorted list of file names
+        # the globbing should happen ahead of time so this case looks different than
+        # the single file case
+        nc = netCDF.MFDataset(loc) # files in fname are in chronological order
 
-        # Find the list of files that cover the desired time period
-        # First, check to see if there is one or more than one time index in each file because
-        # if there is only one, we need to compare two files to see where we are in time
-        # So, open the first file to check.
-        nctemp = netCDF.Dataset(files[0])
-        ttemp = nctemp.variables['ocean_time'][:]
-        nctemp.close()
-        if ttemp.size==1: # one output/time step per file. 
-            noutputs = 1
-            # Assume it is safe to open them all to search for starting place. Rest of indices
-            # are checked below.
-            nctemp = netCDF.MFDataset(files)
-            ttemp = nctemp.variables['ocean_time'][:]
-            nctemp.close()
-            # find which time steps date is between and take earlier one as the starting file
-            ifile = find(ttemp<=date)[0]
+    # Convert date to number
+    dates = netCDF.num2date(nc.variables['ocean_time'][:], time_units)
+    # time index with time value just below date (relative to file ifile)
+    istart = find(dates<=date)[-1]
 
-        else: # more than one output per file  
-            noutputs = 0          
-            for i,name in enumerate(files): # Loop through files
-                nctemp = netCDF.Dataset(name)
-                ttemp = nctemp.variables['ocean_time'][:]
-                # pdb.set_trace()
-                nctemp.close()
-                # If datenum_in is larger than the first time in the file but smaller
-                # than the last time, then this is the correct file to use to start
-                if date >= ttemp[0] and date <= ttemp[-1]:
-                    ifile = i # this is the starting file identifier then
-                    break
-
-        # Since the number of indices per file can change, make the process
-        # of finding the necessary files a little more general
-        # Start by opening two files
-        i = 1
-        fname = [files[ifile]]
-
-        nc = netCDF.MFDataset(fname) # files in fname are in chronological order
-        # Find which output in ifile is closest to the user-input start time (choose lower index)
-        # Dates for drifters from this start date
-        dates = nc.variables['ocean_time'][:]   
-        ilow = date >= dates
-        # time index with time value just below date (relative to file ifile)
-        istart = dates[ilow].size - 1
-        nc.close()
-        # Select indices 
-        if ff==1:
-            tinds = range(istart,istart+tout, tstride) # indices of model outputs desired
-        else: # backward in time
-            # have to shift istart since there are now new indices behind since going backward
-            tinds = range(istart,istart-tout, -tstride)
-        # If we need more indices than available in these files, add another
-
-        if ff==1:
-            # If there is one output per file, just grab the number of necessary files
-            if noutputs:
-                fname = files[ifile:ifile+tout]
-                nc = netCDF.MFDataset(fname) # files in fname are in chronological order
-
-            else: # multiple snapshots per file
-
-                # if the final index we want is beyond the length of these files,
-                # keep adding files on
-                while tinds[-1] > len(dates): 
-                    # if tdir: #forward - add 2nd file on end
-                    fname.append(files[ifile+i])
-                    nc = netCDF.MFDataset(fname) # files in fname are in chronological order
-                    dates = nc.variables['ocean_time'][:]   
-                    ilow = date >= dates
-                    # time index with time value just below datenum_in (relative to file ifile)
-                    istart = dates[ilow].size - 1
-                    tinds = range(istart,istart+tout, tstride)
-                    nc.close()
-                    i = i + 1
-
-        else: #backwards in time
-            while tinds[-1] < 0:
-                fname.insert(0,files[ifile-i])
-                nc = netCDF.MFDataset(fname)
-                dates = nc.variables['ocean_time'][:]   
-                ilow = date >= dates
-                # time index with time value just below datenum_in (relative to file ifile)
-                istart = dates[ilow].size - 1
-                tinds = range(istart,istart-tout, -tstride)
-                nc.close()
-                i = i + 1
-
-        # model output files together containing all necessary model outputs
-        nc = netCDF.MFDataset(fname) # reopen since needed to close things in loop
+    # Select indices 
+    if ff==1:
+        tinds = range(istart,istart+tout, tstride) # indices of model outputs desired
+    else: # backward in time
+        # have to shift istart since there are now new indices behind since going backward
+        tinds = range(istart,istart-tout, -tstride)
 
     return nc, tinds
 
@@ -328,18 +247,29 @@ def readgrid(grid_filename, vert_filename=None, llcrnrlon=-98.5, llcrnrlat=22.5,
         hc = gridfile.variables['hc'][:]
         theta_s = gridfile.variables['theta_s'][:]
         theta_b = gridfile.variables['theta_b'][:]
-        Vtransform = gridfile.variables['Vtransform'][0]
-        Vstretching = gridfile.variables['Vstretching'][0]
+        if 'Vtransform' in gridfile.variables:
+            Vtransform = gridfile.variables['Vtransform'][:]
+            Vstretching = gridfile.variables['Vstretching'][:]
+        else:
+            Vtransform = 1
+            Vstretching = 1
     # Still want vertical grid metrics, but are in separate file
     elif vert_filename is not None:
         nc = netCDF.Dataset(vert_filename)
-        sc_r = nc.variables['s_w'][:] # sigma coords, 31 layers
+        if 's_w' in nc.variables:
+            sc_r = nc.variables['s_w'][:] # sigma coords, 31 layers
+        else:
+            sc_r = nc.variables['sc_w'][:] # sigma coords, 31 layers
         Cs_r = nc.variables['Cs_w'][:] # stretching curve in sigma coords, 31 layers
         hc = nc.variables['hc'][:]
         theta_s = nc.variables['theta_s'][:]
         theta_b = nc.variables['theta_b'][:]
-        Vtransform = nc.variables['Vtransform'][:]
-        Vstretching = nc.variables['Vstretching'][:]
+        if 'Vtransform' in nc.variables:
+            Vtransform = nc.variables['Vtransform'][:]
+            Vstretching = nc.variables['Vstretching'][:]
+        else:
+            Vtransform = 1
+            Vstretching = 1
 
     if keeptime: 
         vgridtime = time.time()
