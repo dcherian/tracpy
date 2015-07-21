@@ -222,11 +222,6 @@ class Tracpy(object):
         if self.grid is None:
             self._readgrid()
 
-        # If dostream==1, do transport calculations and initialize to an empty array
-        if self.U is None and self.dostream:
-            self.U = np.ma.zeros(self.grid['xu'].shape, order='F')
-            self.V = np.ma.zeros(self.grid['xv'].shape, order='F')
-
         # Interpolate to get starting positions in grid space
         if self.usespherical: # convert from assumed input lon/lat coord locations to grid space
             xstart0, ystart0, _ = tracpy.tools.interpolate2d(lon0, lat0, self.grid, 'd_ll2ij')
